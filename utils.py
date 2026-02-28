@@ -96,18 +96,21 @@ def register_cbam_to_yolo():
     需要在训练前调用
     """
     try:
-        from ultralytics.nn.modules import Conv, C2f, SPPF, Concat, Detect
-        from ultralytics.utils.torch_utils import fuse_conv_and_bn
+        # 导入 CBAM 模块
         from models.cbam import CBAM
-        
-        # 尝试注册 CBAM 到 ultralytics 的模块字典
-        # 注意：这可能需要根据 ultralytics 版本调整
+
+        # 1）注册到 ultralytics.nn.modules（备选）
         import ultralytics.nn.modules as modules
-        
-        if not hasattr(modules, 'CBAM'):
+        if not hasattr(modules, "CBAM"):
             modules.CBAM = CBAM
-        
-        print("CBAM 模块已注册到 YOLOv8")
+
+        # 2）关键：注册到 ultralytics.nn.tasks 的全局命名空间
+        # parse_model 在构建网络时会用 globals()['CBAM'] 查找模块
+        import ultralytics.nn.tasks as tasks
+        if not hasattr(tasks, "CBAM"):
+            tasks.CBAM = CBAM
+
+        print("CBAM 模块已注册到 YOLOv8（modules & tasks）")
         return True
     except Exception as e:
         print(f"警告：无法自动注册 CBAM 模块: {e}")

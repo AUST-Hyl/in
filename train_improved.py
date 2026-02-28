@@ -1,13 +1,40 @@
 """
 改进的训练脚本
 针对小数据集和性能问题进行了优化
+支持：
+- YOLOv8 Baseline
+- YOLOv8-CBAM 结构对比实验
 """
 
 import argparse
 from pathlib import Path
 from ultralytics import YOLO
 import torch
-from utils import check_dataset_config, print_device_info
+from utils import check_dataset_config, print_device_info, register_cbam_to_yolo
+
+
+def build_model(args):
+    """
+    根据 arch 参数构建模型：
+    - base : 标准 YOLOv8（官方结构）
+    - cbam : 使用 yolov8_cbam.yaml，真正插入 CBAM 模块
+    """
+    # 如果使用 SIoU 损失，先应用 patch
+    if args.loss == "siou":
+        from utils import apply_siou_patch
+
+        apply_siou_patch()
+
+    if args.arch == "cbam":
+        # 注册 CBAM 模块到 ultralytics
+        register_cbam_to_yolo()
+        # 使用自定义结构文件构建 YOLOv8-CBAM（从头训练，不再尝试加载预训练权重）
+        model = YOLO("models/yolov8_cbam.yaml")
+    else:
+        # 标准 YOLOv8 作为 Baseline
+        model = YOLO(f"yolov8{args.model_size}.pt")
+
+    return model
 
 
 def train_improved(args):
@@ -15,14 +42,9 @@ def train_improved(args):
     print("=" * 60)
     print("开始训练（改进版）")
     print("=" * 60)
-    
-    # 如果使用 SIoU 损失，先应用 patch
-    if args.loss == 'siou':
-        from utils import apply_siou_patch
-        apply_siou_patch()
-    
-    # 加载预训练模型
-    model = YOLO(f'yolov8{args.model_size}.pt')
+
+    # 构建模型（根据 arch / loss 选择结构与损失）
+    model = build_model(args)
     
     # 改进的训练参数
     # 针对小数据集的优化策略：
@@ -31,6 +53,13 @@ def train_improved(args):
     # 3. 增加训练轮数
     # 4. 使用类别权重（如果类别不平衡）
     
+    # 根据结构类型给实验名称加后缀，便于对比
+    exp_name = args.name
+    if args.arch == "cbam":
+        exp_name = f"{exp_name}_cbam"
+    elif args.loss == "siou":
+        exp_name = f"{exp_name}_siou"
+
     train_params = {
         'data': args.data,
         'epochs': args.epochs,
@@ -38,7 +67,7 @@ def train_improved(args):
         'batch': args.batch,
         'device': args.device,
         'project': args.project,
-        'name': f"{args.name}_siou" if args.loss == 'siou' else args.name,
+        'name': exp_name,
         'exist_ok': True,
         'pretrained': True,
         'optimizer': args.optimizer,
@@ -91,12 +120,12 @@ def train_improved(args):
             pass
     
     print("\n训练参数:")
-    print(f"  模型: yolov8{args.model_size}")
+    print(f"  模型: yolov8{args.model_size} ({args.arch})")
     print(f"  训练轮数: {args.epochs}")
     print(f"  批次大小: {args.batch}")
     print(f"  初始学习率: {args.lr0}")
     print(f"  图像尺寸: {args.img_size}")
-    print(f"  边界框损失: {args.loss.upper()}（SIoU 可提升 mAP@0.5:0.95）")
+    print(f"  边界框损失: {args.loss.upper()}")
     print(f"  数据增强: 已增强（适合小数据集）")
     
     # 开始训练
@@ -120,10 +149,15 @@ def train_improved(args):
 def main():
     parser = argparse.ArgumentParser(description='YOLOv8 改进训练脚本（针对小数据集优化）')
     
-    # 模型选择
+    # 模型规模
     parser.add_argument('--model_size', type=str, default='s',
                         choices=['n', 's', 'm', 'l', 'x'],
                         help='模型规模')
+
+    # 结构选择：baseline vs CBAM
+    parser.add_argument('--arch', type=str, default='base',
+                        choices=['base', 'cbam'],
+                        help='网络结构：base=YOLOv8 基准结构, cbam=YOLOv8-CBAM')
     
     # 数据集配置
     parser.add_argument('--data', type=str, default='data/insulator.yaml',
@@ -159,9 +193,9 @@ def main():
                         help='类别权重文件路径或 "auto" 自动计算')
     
     # 损失函数选择
-    parser.add_argument('--loss', type=str, default='siou',
+    parser.add_argument('--loss', type=str, default='ciou',
                         choices=['ciou', 'siou'],
-                        help='边界框损失函数: ciou(默认) 或 siou(提升定位精度)')
+                        help='边界框损失函数: ciou 或 siou')
     
     args = parser.parse_args()
     
