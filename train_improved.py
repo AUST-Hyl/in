@@ -19,11 +19,10 @@ def build_model(args):
     - base : 标准 YOLOv8（官方结构）
     - cbam : 使用 yolov8_cbam.yaml，真正插入 CBAM 模块
     """
-    # 如果使用 SIoU 损失，先应用 patch
-    if args.loss == "siou":
-        from utils import apply_siou_patch
-
-        apply_siou_patch()
+    # 如果使用非 CIoU 损失，先应用 patch
+    if args.loss != "ciou":
+        from utils import apply_loss_patch
+        apply_loss_patch(args.loss)
 
     if args.arch == "cbam":
         # 注册 CBAM 模块到 ultralytics
@@ -53,12 +52,12 @@ def train_improved(args):
     # 3. 增加训练轮数
     # 4. 使用类别权重（如果类别不平衡）
     
-    # 根据结构类型给实验名称加后缀，便于对比
+    # 根据结构类型和损失函数给实验名称加后缀，便于对比
     exp_name = args.name
     if args.arch == "cbam":
         exp_name = f"{exp_name}_cbam"
-    elif args.loss == "siou":
-        exp_name = f"{exp_name}_siou"
+    if args.loss != "ciou":
+        exp_name = f"{exp_name}_{args.loss}"
 
     train_params = {
         'data': args.data,
@@ -194,8 +193,8 @@ def main():
     
     # 损失函数选择
     parser.add_argument('--loss', type=str, default='ciou',
-                        choices=['ciou', 'siou'],
-                        help='边界框损失函数: ciou 或 siou')
+                        choices=['ciou', 'siou', 'eiou', 'wiou'],
+                        help='边界框损失函数: ciou(默认), siou, eiou(推荐), wiou(最先进)')
     
     args = parser.parse_args()
     
