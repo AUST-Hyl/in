@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>绝缘子破损检测</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <div class="brand">
+          <div class="brand-icon">⚡</div>
+          <div>
+            <h1>绝缘子破损检测</h1>
+            <p class="subtitle">基于 YOLOv8 · 拖拽图片即可检测</p>
+          </div>
+        </div>
+        <div class="status-bar" id="statusBar">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">连接中...</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="panel settings-panel">
+        <h2>检测参数</h2>
+        <p class="panel-desc">破损局部是小目标，置信度通常较低。建议「破损阈值」设为 0.02 左右。</p>
+
+        <div class="form-grid">
+          <label class="field">
+            <span>模型权重</span>
+            <select id="modelSelect">
+              <option value="">加载中...</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>绝缘子阈值 <strong id="confValue">0.25</strong></span>
+            <input type="range" id="confSlider" min="0.05" max="0.95" step="0.05" value="0.25">
+          </label>
+
+          <label class="field">
+            <span>破损阈值 <strong id="confBrokenValue">0.02</strong></span>
+            <input type="range" id="confBrokenSlider" min="0.01" max="0.30" step="0.01" value="0.02">
+          </label>
+
+          <label class="field">
+            <span>IoU 阈值 <strong id="iouValue">0.45</strong></span>
+            <input type="range" id="iouSlider" min="0.1" max="0.9" step="0.05" value="0.45">
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="selectBtn">选择图片</button>
+          <button type="button" class="btn btn-secondary" id="clearBtn" disabled>清空结果</button>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      </section>
+
+      <section class="panel drop-panel">
+        <div
+          class="dropzone"
+          id="dropzone"
+          tabindex="0"
+          role="button"
+          aria-label="拖入图片进行检测"
+        >
+          <div class="dropzone-content">
+            <div class="dropzone-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 16V4m0 0L8 8m4-4 4 4"/>
+                <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+              </svg>
+            </div>
+            <h3>拖入图片到此处</h3>
+            <p>支持单张或批量拖入 · JPG / PNG / WEBP</p>
+            <p class="hint">也可点击此区域或上方按钮选择文件</p>
+          </div>
+          <div class="dropzone-overlay" id="dropOverlay">释放以开始检测</div>
+        </div>
+
+        <div class="progress-wrap hidden" id="progressWrap">
+          <div class="progress-header">
+            <span id="progressLabel">正在检测...</span>
+            <span id="progressCount">0 / 0</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel summary-panel hidden" id="summaryPanel">
+        <h2>检测概览</h2>
+        <div class="stats-grid" id="statsGrid"></div>
+      </section>
+
+      <section class="panel results-panel hidden" id="resultsPanel">
+        <div class="results-header">
+          <h2>检测结果</h2>
+          <div class="view-toggle">
+            <button type="button" class="toggle-btn active" data-view="result">标注图</button>
+            <button type="button" class="toggle-btn" data-view="original">原图</button>
+            <button type="button" class="toggle-btn" data-view="compare">对比</button>
+          </div>
+        </div>
+        <div class="results-grid" id="resultsGrid"></div>
+      </section>
+    </main>
+  </div>
+
+  <template id="resultCardTemplate">
+    <article class="result-card">
+      <div class="card-media">
+        <img class="card-image result-image" alt="检测结果">
+        <img class="card-image original-image hidden" alt="原图">
+        <div class="card-badge"></div>
+      </div>
+      <div class="card-body">
+        <h3 class="card-title"></h3>
+        <p class="card-meta"></p>
+        <div class="detection-list"></div>
+      </div>
+    </article>
+  </template>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
